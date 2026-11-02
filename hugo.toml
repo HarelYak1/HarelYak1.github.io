@@ -1,6 +1,6 @@
 baseURL = 'https://harelyak1.github.io/'
-languageCode = 'en-us'
-title = 'Harelyak | Security Research'
+locale = 'en-us'
+title = 'Harel Yakobovitz | Security Research'
 theme = 'PaperMod'
 
 enableInlineShortcodes = true
@@ -19,8 +19,8 @@ enableRobotsTXT = true
   TocOpen = false
 
 [params.homeInfoParams]
-  Title = 'Vulnerability Research & Security Notes'
-  Content = 'Deep-dives into kernel internals, binary exploitation, and low-level systems.'
+  Title = 'Harel Yakobovitz'
+  Content = 'Deep-dives into vulnerability research, reverse engineering, and low-level security.'
 
 [[params.socialIcons]]
   name = 'github'

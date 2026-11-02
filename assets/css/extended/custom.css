@@ -15,6 +15,17 @@
   --accent: #58a6ff;
 }
 
+.recent-posts-heading {
+  font-size: 1.15rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--secondary);
+  margin: 2rem 0 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
 .post-entry {
   background: var(--entry);
   border: 1px solid var(--border);
@@ -56,4 +67,25 @@ code {
 pre code {
   background-color: transparent;
   padding: 0;
+}
+
+/* Center the homeInfo section */
+.first-entry {
+  text-align: center;
+  align-items: center;
+}
+
+/* Center the content container and text inside */
+.first-entry .entry-content {
+  text-align: center;
+}
+
+/* Center header/title if separate */
+.first-entry .entry-header {
+  text-align: center;
+}
+
+/* Unbox the pseudo-element from the first post card */
+.post-entry:first-of-type {
+  display: contents;
 }
