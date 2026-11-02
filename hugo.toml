@@ -1,0 +1,43 @@
+baseURL = 'https://harelyak1.github.io/'
+languageCode = 'en-us'
+title = 'Harelyak | Security Research'
+theme = 'PaperMod'
+
+enableInlineShortcodes = true
+enableRobotsTXT = true
+
+[pagination]
+  pagerSize = 10
+
+[params]
+  defaultTheme = 'dark'
+  disableThemeToggle = false
+  ShowReadingTime = true
+  ShowWordCount = true
+  ShowCodeCopyButtons = true
+  ShowToc = true
+  TocOpen = false
+
+[params.homeInfoParams]
+  Title = 'Vulnerability Research & Security Notes'
+  Content = 'Deep-dives into kernel internals, binary exploitation, and low-level systems.'
+
+[[params.socialIcons]]
+  name = 'github'
+  url = 'https://github.com/harelyak1'
+
+[[menu.main]]
+  name = 'Posts'
+  url = '/posts/'
+  weight = 10
+
+[[menu.main]]
+  name = 'Tags'
+  url = '/tags/'
+  weight = 20
+
+[markup.highlight]
+  codeFences = true
+  guessSyntax = true
+  lineNos = true
+  style = 'monokai'
