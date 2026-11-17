@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto" data-theme="dark">
+
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="noindex, nofollow">
+<title>Pre-Auth RCE On A D-Link Router - CVE-1-1 | Harel Yakobovitz | Security Research</title>
+<meta name="keywords" content="d-link, ida, exploitation, vulnerability research, buffer-overflow, mips">
+<meta name="description" content="A walkthrough of discovering and exploiting a pre-auth stack-based buffer overflow in the D-Link DSL-224RTL CWMP service.">
+<meta name="author" content="">
+<link rel="canonical" href="http://localhost:1313/posts/first-writeup/first-writeup/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.fc29381e13d671d18957794799490bae040b29bc4652764579b79d7945305a78.css" integrity="sha256-/Ck4HhPWcdGJV3lHmUkLrgQLKbxGUnZFebedeUUwWng=" rel="preload stylesheet" as="style">
+<link rel="icon" href="http://localhost:1313/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="http://localhost:1313/favicon-32x32.png">
+<link rel="apple-touch-icon" href="http://localhost:1313/apple-touch-icon.png">
+<link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" hreflang="en" href="http://localhost:1313/posts/first-writeup/first-writeup/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+</noscript>
+<script>
+    if (localStorage.getItem("pref-theme") === "light") {
+        document.querySelector("html").dataset.theme = 'light';
+    }
+
+</script>
+</head>
+<body id="top">
+    <header class="header">
+    <nav class="header-nav">
+        <div class="logo">
+            <a href="http://localhost:1313/" accesskey="h" title="Harel Yakobovitz | Security Research (Alt + H)">Harel Yakobovitz | Security Research</a>
+            <div class="logo-switches">
+                <button id="theme-toggle" class="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
+                    <svg class="moon" xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg class="sun" xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <ul id="menu" class="menu">
+            <li>
+                <a href="http://localhost:1313/posts/" title="Posts">
+                    <span>Posts</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/tags/" title="Tags">
+                    <span>Tags</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+  <header class="post-header">
+    
+    <h1 class="post-title entry-hint-parent">
+      Pre-Auth RCE On A D-Link Router - CVE-1-1
+    </h1>
+    <div class="post-description">
+      A walkthrough of discovering and exploiting a pre-auth stack-based buffer overflow in the D-Link DSL-224RTL CWMP service.
+    </div>
+    <div class="post-meta">
+
+<span title='2026-11-08T00:00:00+00:00'>November 8, 2026</span>&nbsp;·&nbsp;<span>3 min</span>&nbsp;·&nbsp;<span>463 words</span>
+
+</div>
+  </header> <details class="toc" >
+    <summary accesskey="c" title="(Alt + C)">
+        <span class="title">Table of Contents</span>
+    </summary>
+
+    <div class="inner"><ul>
+            <li>
+                <a href="#overview" aria-label="Overview">Overview</a></li>
+            <li>
+                <a href="#extracting-the-firmware" aria-label="Extracting the firmware">Extracting the firmware</a></li>
+            <li>
+                <a href="#mapping-attack-surfaces" aria-label="Mapping Attack surfaces">Mapping Attack surfaces</a></li>
+            <li>
+                <a href="#binary-mitigations" aria-label="Binary Mitigations">Binary Mitigations</a></li>
+            <li>
+                <a href="#technical-analysis-hunting-for-the-bug" aria-label="Technical Analysis: Hunting for the Bug">Technical Analysis: Hunting for the Bug</a>
+            </li>
+        </ul>
+    </div>
+</details>
+
+  <div class="post-content md-content"><h2 id="overview">Overview<a hidden class="anchor" aria-hidden="true" href="#overview">#</a></h2>
+<p>I recently decided to take a deeper look at a router i found at home , D-link DSL-224 RTL .
+Although the device reached its End-of-Life (just a few months ago), these ISP-managed appliances remain widely deployed, making their management interfaces a prime target for finding vulnerabilities.</p>
+<p><img alt="D-Link DSL-224RTL Router" loading="lazy" src="dlink-router.jpg"></p>
+<h2 id="extracting-the-firmware">Extracting the firmware<a hidden class="anchor" aria-hidden="true" href="#extracting-the-firmware">#</a></h2>
+<p>First, I needed to obtain the router&rsquo;s binaries for further research, which I easily found on D-Link&rsquo;s public FTP server.</p>
+<p>My physical router runs firmware version 3.0.5. I initially wanted to emulate the latest firmware version, but the emulation process proved overly complicated for this specific device due to numerous hardware dependencies that would need to be patched. Therefore, I chose to start testing directly on my own physical router (not the best practice, I know!) and proceed with my investigation from there.</p>
+<p>I executed binwalk on the firmware image and successfully extracted the entire SquashFS file system.</p>
+<h2 id="mapping-attack-surfaces">Mapping Attack surfaces<a hidden class="anchor" aria-hidden="true" href="#mapping-attack-surfaces">#</a></h2>
+<h2 id="binary-mitigations">Binary Mitigations<a hidden class="anchor" aria-hidden="true" href="#binary-mitigations">#</a></h2>
+<p>Before getting into the code, I ran standard checks on the <code>/sbin/tr069</code> binary (MIPS-32 Big Endian) to see what kind of mitigations was going to put up. The answer? Absolutely none.</p>
+<ul>
+<li><strong>RELRO:</strong> No RELRO</li>
+<li><strong>Stack Canary:</strong> None found</li>
+<li><strong>NX:</strong> Unknown (GNU_STACK missing)</li>
+<li><strong>PIE:</strong> No PIE (Fixed base address at <code>0x400000</code>)</li>
+<li><strong>RWX:</strong> Has RWX segments</li>
+</ul>
+<p>Classic embedded device binary , the real challenge here is that the architecture is MIPS that i unfimiliar with and the limits of the Vulnerable code itself  .</p>
+<h2 id="technical-analysis-hunting-for-the-bug">Technical Analysis: Hunting for the Bug<a hidden class="anchor" aria-hidden="true" href="#technical-analysis-hunting-for-the-bug">#</a></h2>
+<p>Tracing the execution flow for HTTP Digest authentication, I landed in a function sitting at <code>0x45628C</code> in firmware version 3.0.5 (it shifted to <code>0x47909C</code> in version 3.0.10, but the logic is identical).</p>
+<p>This function is responsible for building an MD5 input string for the Digest auth validation. It does this by concatenating various fields from the HTTP <code>Authorization</code> header into a fixed-size stack buffer.</p>
+<p>Here is the decompiled view of the vulnerable function:</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">27
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">28
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">29
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#66d9ef">char</span> <span style="color:#f92672">*</span><span style="color:#66d9ef">__fastcall</span> <span style="color:#a6e22e">sub_45628C</span>(<span style="color:#66d9ef">const</span> <span style="color:#66d9ef">char</span> <span style="color:#f92672">*</span>a1, <span style="color:#66d9ef">char</span> <span style="color:#f92672">*</span>a2, <span style="color:#66d9ef">int</span> a3, <span style="color:#66d9ef">int</span> a4)
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">char</span> s[<span style="color:#ae81ff">68</span>];        <span style="color:#75715e">// [sp+18h]
+</span></span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">char</span> src[<span style="color:#ae81ff">68</span>];      <span style="color:#75715e">// [sp+5Ch]
+</span></span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">char</span> dest[<span style="color:#ae81ff">200</span>];    <span style="color:#75715e">// [sp+A0h]  &lt;-- Our target
+</span></span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">int</span> v11;           <span style="color:#75715e">// [sp+168h]
+</span></span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">memset</span>(s,    <span style="color:#ae81ff">0</span>, <span style="color:#ae81ff">0x41</span>);
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">memset</span>(src,  <span style="color:#ae81ff">0</span>, <span style="color:#ae81ff">0x41</span>);
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">memset</span>(dest, <span style="color:#ae81ff">0</span>, <span style="color:#66d9ef">sizeof</span>(dest));
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">sub_456164</span>(a1, s, a3, v11);
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">sub_45605C</span>(a1, src);
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">sprintf</span>(dest, <span style="color:#e6db74">&#34;%s:%s:&#34;</span>, s, a1 <span style="color:#f92672">+</span> <span style="color:#ae81ff">401</span>);   <span style="color:#75715e">// realm
+</span></span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">if</span> (a1[<span style="color:#ae81ff">953</span>]) {                          <span style="color:#75715e">// If &#39;qop&#39; is present -&gt; overflow path!
+</span></span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">strcat</span>(dest, a1 <span style="color:#f92672">+</span> <span style="color:#ae81ff">545</span>);               <span style="color:#75715e">// cnonce   &lt;-- no bounds check
+</span></span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">strcat</span>(dest, <span style="color:#e6db74">&#34;:&#34;</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">strcat</span>(dest, a1 <span style="color:#f92672">+</span> <span style="color:#ae81ff">473</span>);               <span style="color:#75715e">// opaque   &lt;-- no bounds check
+</span></span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">strcat</span>(dest, <span style="color:#e6db74">&#34;:&#34;</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">strcat</span>(dest, a1 <span style="color:#f92672">+</span> <span style="color:#ae81ff">953</span>);               <span style="color:#75715e">// qop      &lt;-- no bounds check
+</span></span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">strcat</span>(dest, <span style="color:#e6db74">&#34;:&#34;</span>);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">strcat</span>(dest, src);                      <span style="color:#75715e">// nc       &lt;-- no bounds check
+</span></span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">do_md5_string</span>(dest);
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">strcpy</span>(a2, dest);                       <span style="color:#75715e">// secondary propagation
+</span></span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> a2;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div>
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+      <li><a href="http://localhost:1313/tags/d-link/">D-Link</a></li>
+      <li><a href="http://localhost:1313/tags/ida/">Ida</a></li>
+      <li><a href="http://localhost:1313/tags/exploitation/">Exploitation</a></li>
+      <li><a href="http://localhost:1313/tags/vulnerability-research/">Vulnerability Research</a></li>
+      <li><a href="http://localhost:1313/tags/buffer-overflow/">Buffer-Overflow</a></li>
+      <li><a href="http://localhost:1313/tags/mips/">Mips</a></li>
+    </ul>
+  </footer>
+</article>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2026 <a href="http://localhost:1313/">Harel Yakobovitz | Security Research</a></span> · 
+
+    
+    
+    <span>
+        Powered by
+        <a href="https://gohugo.io/?utm_source=papermod" rel="noopener" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" id="top-link" class="top-link hidden" aria-label="go to top" title="Go to Top (Alt + G)" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round" class="feather feather-chevrons-up">
+        <polyline points="17 11 12 6 7 11"></polyline>
+        <polyline points="17 18 12 13 7 18"></polyline>
+    </svg>
+</a>
+
+<script>
+    let menu = document.getElementById('menu');
+    if (menu) {
+        
+        const scrollPosition = localStorage.getItem("menu-scroll-position");
+        if (scrollPosition) {
+            menu.scrollLeft = parseInt(scrollPosition, 10);
+        }
+        
+        
+        let menuScrollTimeout;
+        menu.addEventListener("scroll", function () {
+            clearTimeout(menuScrollTimeout);
+            menuScrollTimeout = setTimeout(function () {
+                localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+            }, 150);
+        }, { passive: true });
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            const target = document.querySelector(`[id='${decodeURIComponent(id)}']`);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                target.scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                target.scrollIntoView();
+            }
+            
+            
+            if (target.tabIndex < 0 && !target.hasAttribute("tabindex")) {
+                target.setAttribute("tabindex", "-1");
+            }
+            target.focus({ preventScroll: true });
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var toplink = document.getElementById("top-link");
+    var scrollTicking = false;
+    
+    window.addEventListener("scroll", function () {
+        if (scrollTicking) {
+            return;
+        }
+        scrollTicking = true;
+        requestAnimationFrame(function () {
+            const scrollThreshold = window.innerHeight;
+            const shown = document.body.scrollTop > scrollThreshold || document.documentElement.scrollTop > scrollThreshold;
+            toplink.classList.toggle("hidden", !shown);
+            scrollTicking = false;
+        });
+    }, { passive: true });
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        const html = document.querySelector("html");
+        if (html.dataset.theme === "dark") {
+            html.dataset.theme = 'light';
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            html.dataset.theme = 'dark';
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+<script>
+    document.querySelectorAll('pre > code').forEach((codeblock) => {
+        const container = codeblock.parentNode.parentNode;
+
+        const copybutton = document.createElement('button');
+        copybutton.classList.add('copy-code');
+        copybutton.innerHTML = 'copy';
+
+        function copyingDone() {
+            copybutton.innerHTML = 'copied!';
+            setTimeout(() => {
+                copybutton.innerHTML = 'copy';
+            }, 2000);
+        }
+
+        copybutton.addEventListener('click', (cb) => {
+            if ('clipboard' in navigator) {
+                navigator.clipboard.writeText(codeblock.textContent);
+                copyingDone();
+                return;
+            }
+
+            const range = document.createRange();
+            range.selectNodeContents(codeblock);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            try {
+                document.execCommand('copy');
+                copyingDone();
+            } catch (e) { };
+            selection.removeRange(range);
+        });
+
+        if (container.classList.contains("highlight")) {
+            container.appendChild(copybutton);
+        } else if (container.parentNode.firstChild == container) {
+            
+        } else if (codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.nodeName == "TABLE") {
+            
+            codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.appendChild(copybutton);
+        } else {
+            
+            codeblock.parentNode.appendChild(copybutton);
+        }
+    });
+</script>
+</body>
+
+</html>
