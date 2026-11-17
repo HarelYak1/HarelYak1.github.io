@@ -7,6 +7,7 @@ categories: ["Research"]
 description: "A walkthrough of discovering and exploiting a pre-auth stack-based buffer overflow in the D-Link DSL-224RTL CWMP service."
 ShowToc: true
 ---
+![background](hacking.png)
 
 ## At a Glance
 
