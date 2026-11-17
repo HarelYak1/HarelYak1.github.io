@@ -2,7 +2,7 @@ baseURL = 'https://harelyak1.github.io/'
 locale = 'en-us'
 title = 'Harel Yakobovitz | Security Research'
 theme = 'PaperMod'
-googleAnalytics = "G-FPWE4F4TL6"
+googleAnalytics = 'G-FPWE4F4TL6'
 
 enableInlineShortcodes = true
 enableRobotsTXT = true
@@ -11,6 +11,7 @@ enableRobotsTXT = true
   pagerSize = 10
 
 [params]
+  env = 'production'
   defaultTheme = 'dark'
   disableThemeToggle = false
   ShowReadingTime = true
